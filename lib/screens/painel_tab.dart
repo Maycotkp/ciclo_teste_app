@@ -62,14 +62,17 @@ class _PainelTabState extends State<PainelTab> {
                   itemBuilder: (ctx, i) => _SprintCard(sprint: sprints[i]),
                 ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Nova Sprint'),
-              onPressed: app.addSprint,
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Nova Sprint'),
+                onPressed: app.addSprint,
+              ),
             ),
           ),
         ),
