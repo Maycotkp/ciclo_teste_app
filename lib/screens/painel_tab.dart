@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/app_models.dart';
 import '../state/app_provider.dart';
+import '../theme/pixel.dart';
 import '../widgets/bug_badges.dart';
 import '../widgets/finish_cycle_dialog.dart';
 
@@ -17,175 +18,286 @@ class _PainelTabState extends State<PainelTab> {
   final _searchController = TextEditingController();
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final sprints = app.visibleSprints();
 
-    return Column(
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Buscar por sprint ou card...',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: app.setMainSearch,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.unfold_more),
-                tooltip: 'Expandir tudo',
+        _ProjectPanel(app: app),
+        const SizedBox(height: 8),
+        PixelTextField(
+          controller: _searchController,
+          hint: 'BUSCAR SPRINT OU CARD...',
+          icon: Icons.search,
+          ringColor: Px.cyan,
+          onChanged: app.setMainSearch,
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: PixelButton(
+                label: 'EXPANDIR',
+                icon: Icons.unfold_more,
+                iconSize: 16,
+                fontSize: 8,
+                height: 38,
                 onPressed: () => app.setAllCollapsed(false),
               ),
-              IconButton(
-                icon: const Icon(Icons.unfold_less),
-                tooltip: 'Recolher tudo',
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: PixelButton(
+                label: 'RECOLHER',
+                icon: Icons.unfold_less,
+                iconSize: 16,
+                fontSize: 8,
+                height: 38,
                 onPressed: () => app.setAllCollapsed(true),
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: sprints.isEmpty
-              ? const _EmptyState(text: 'Nenhuma Sprint ainda. Toque em "Nova Sprint" para começar.')
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: sprints.length,
-                  itemBuilder: (ctx, i) => _SprintCard(sprint: sprints[i]),
-                ),
-        ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text('Nova Sprint'),
-                onPressed: app.addSprint,
-              ),
             ),
-          ),
+          ],
         ),
+        const SizedBox(height: 8),
+        if (sprints.isEmpty)
+          PixelPanel(
+            border: Px.amber,
+            padding: const EdgeInsets.all(14),
+            child: Text(
+              app.mainSearchTerm.isEmpty
+                  ? 'NENHUMA SPRINT AINDA. TOQUE EM NOVA SPRINT PARA COMEÇAR.'
+                  : 'NENHUM RESULTADO PARA A BUSCA.',
+              style: Px.p(8, color: Px.amber, height: 1.8),
+            ),
+          )
+        else
+          for (final s in sprints) _SprintCard(sprint: s),
+        const SizedBox(height: 8),
+        PixelButton(label: 'NOVA SPRINT', icon: Icons.add, variant: PxVariant.purple, height: 48, onPressed: app.addSprint),
       ],
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.text});
-  final String text;
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
-        ),
-      );
-}
+class _ProjectPanel extends StatelessWidget {
+  const _ProjectPanel({required this.app});
+  final AppProvider app;
 
-class _SprintCard extends StatelessWidget {
-  const _SprintCard({required this.sprint});
-  final Sprint sprint;
+  Future<void> _pick(BuildContext context) async {
+    final id = await showPixelDialog<String>(
+      context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('TROCAR DE PROJETO', style: Px.p(11, color: Px.cyan, height: 1.6)),
+          const SizedBox(height: 10),
+          for (final p in app.state.projects)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: PixelChip(
+                p.name.toUpperCase(),
+                selected: p.id == app.currentProject.id,
+                onTap: () => Navigator.pop(ctx, p.id),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (id != null) app.switchProject(id);
+  }
+
+  Future<void> _create(BuildContext context) async {
+    final name = await pixelPrompt(context, title: 'NOVO PROJETO', hint: 'NOME DO PROJETO');
+    if (name != null) app.addProject(name);
+  }
+
+  Future<void> _rename(BuildContext context) async {
+    final name = await pixelPrompt(
+      context,
+      title: 'RENOMEAR PROJETO',
+      hint: 'NOME DO PROJETO',
+      initial: app.currentProject.name,
+      confirmLabel: 'SALVAR',
+    );
+    if (name != null) app.renameProject(name);
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    final ok = await pixelConfirm(
+      context,
+      'Excluir "${app.currentProject.name}" e TODAS as Sprints, Cards e Ciclos dentro dele?',
+    );
+    if (ok) app.deleteCurrentProject();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final app = context.watch<AppProvider>();
-    final visibleCards = app.visibleCards(sprint);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final only = app.state.projects.length <= 1;
+    return PixelPanel(
+      padding: const EdgeInsets.all(10),
+      child: Row(
         children: [
-          InkWell(
-            onTap: () => app.toggleSprintCollapse(sprint.id),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _pick(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(sprint.collapsed ? Icons.chevron_right : Icons.expand_more),
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Text('SPRINT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {},
-                      child: _InlineRename(
-                        initialValue: sprint.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        onSubmit: (v) => app.renameSprint(sprint.id, v),
-                      ),
-                    ),
-                  ),
-                  Text('(${sprint.cards.length} cards)', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                  IconButton(
-                    icon: const Icon(Icons.add_box_outlined, size: 20),
-                    tooltip: 'Novo card',
-                    onPressed: () => app.addCard(sprint.id),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
-                    tooltip: 'Excluir sprint',
-                    onPressed: () async {
-                      final ok = await _confirm(context, 'Excluir esta Sprint e todos os cards/ciclos dentro dela?');
-                      if (ok) app.deleteSprint(sprint.id);
-                    },
+                  Text('PROJETO', style: Px.p(8, color: Px.violet, height: 1)),
+                  const SizedBox(height: 7),
+                  Text(
+                    app.currentProject.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Px.p(10, color: Px.cyan, height: 1.2),
                   ),
                 ],
               ),
             ),
           ),
-          if (!sprint.collapsed)
-            if (visibleCards.isEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text('Nenhum card nesta Sprint ainda.', style: TextStyle(color: Colors.grey)),
-              )
-            else
-              ...visibleCards.map((c) => _CardTile(sprint: sprint, card: c)),
+          PixelButton(icon: Icons.expand_more, width: 36, height: 36, padding: EdgeInsets.zero, tooltip: 'Trocar de projeto', onPressed: () => _pick(context)),
+          PixelButton(icon: Icons.edit, iconSize: 14, width: 36, height: 36, padding: EdgeInsets.zero, tooltip: 'Renomear projeto', onPressed: () => _rename(context)),
+          PixelButton(
+            icon: Icons.delete_outline,
+            iconSize: 16,
+            width: 36,
+            height: 36,
+            padding: EdgeInsets.zero,
+            variant: PxVariant.red,
+            tooltip: 'Excluir projeto',
+            onPressed: only ? null : () => _delete(context),
+          ),
+          PixelButton(label: '+ NOVO', variant: PxVariant.cyan, fontSize: 8, height: 36, onPressed: () => _create(context)),
         ],
       ),
     );
   }
 }
 
-Future<bool> _confirm(BuildContext context, String message) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      content: Text(message),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: Colors.red),
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Excluir'),
-        ),
-      ],
-    ),
-  );
-  return result ?? false;
+class _SprintCard extends StatelessWidget {
+  const _SprintCard({required this.sprint});
+  final Sprint sprint;
+
+  Future<void> _pickStatus(BuildContext context, AppProvider app) async {
+    final status = await showPixelDialog<String>(
+      context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('STATUS DA SPRINT', style: Px.p(11, color: Px.cyan, height: 1.6)),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: PixelChip('EM ANDAMENTO', selected: !sprint.concluida, onTap: () => Navigator.pop(ctx, Sprint.statusEmAndamento)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: PixelChip('CONCLUÍDA', selected: sprint.concluida, onTap: () => Navigator.pop(ctx, Sprint.statusConcluida)),
+          ),
+        ],
+      ),
+    );
+    if (status != null) app.setSprintStatus(sprint.id, status);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    final visibleCards = app.visibleCards(sprint);
+    final done = sprint.concluida;
+
+    return PixelPanel(
+      border: done ? Px.line : Px.purple,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(4, 4, 4, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              PixelBadge('SPRINT', bg: done ? Px.line2 : Px.purple, fg: done ? Px.muted : Colors.white),
+              const SizedBox(width: 4),
+              PixelBadge(
+                done ? 'CONCLUÍDA' : 'EM ANDAMENTO',
+                trailing: Icons.expand_more,
+                bg: done ? const Color(0xFF0F3D27) : const Color(0xFF0B3A4A),
+                fg: done ? Px.green : Px.cyan,
+                ring: done ? Px.green : Px.cyan,
+                onTap: () => _pickStatus(context, app),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _InlineRename(
+                  key: ValueKey('sprint-${sprint.id}'),
+                  initialValue: sprint.name,
+                  style: Px.p(11, color: done ? Px.muted : Px.yellow, height: 1.5),
+                  onSubmit: (v) => app.renameSprint(sprint.id, v),
+                ),
+              ),
+              PixelButton(
+                icon: Icons.add,
+                iconSize: 16,
+                width: 34,
+                height: 34,
+                padding: EdgeInsets.zero,
+                variant: PxVariant.cyan,
+                tooltip: 'Novo card',
+                onPressed: () => app.addCard(sprint.id),
+              ),
+              PixelButton(
+                icon: Icons.delete_outline,
+                iconSize: 16,
+                width: 34,
+                height: 34,
+                padding: EdgeInsets.zero,
+                variant: PxVariant.red,
+                tooltip: 'Excluir sprint',
+                onPressed: () async {
+                  final ok = await pixelConfirm(context, 'Excluir esta Sprint e todos os cards e ciclos dentro dela?');
+                  if (ok) app.deleteSprint(sprint.id);
+                },
+              ),
+              PixelButton(
+                icon: sprint.collapsed ? Icons.expand_more : Icons.expand_less,
+                iconSize: 18,
+                width: 34,
+                height: 34,
+                padding: EdgeInsets.zero,
+                tooltip: sprint.collapsed ? 'Expandir sprint' : 'Recolher sprint',
+                onPressed: () => app.toggleSprintCollapse(sprint.id),
+              ),
+            ],
+          ),
+          Text('${sprint.cards.length} cards', style: Px.v(19, color: Px.muted)),
+          if (!sprint.collapsed) ...[
+            const SizedBox(height: 10),
+            if (visibleCards.isEmpty)
+              Text('Nenhum card nesta Sprint ainda.', style: Px.v(20, color: Px.muted))
+            else
+              for (final c in visibleCards) _CardTile(sprint: sprint, card: c),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _InlineRename extends StatefulWidget {
-  const _InlineRename({required this.initialValue, required this.onSubmit, this.style});
+  const _InlineRename({super.key, required this.initialValue, required this.onSubmit, this.style});
   final String initialValue;
   final ValueChanged<String> onSubmit;
   final TextStyle? style;
@@ -196,17 +308,22 @@ class _InlineRename extends StatefulWidget {
 
 class _InlineRenameState extends State<_InlineRename> {
   late final TextEditingController _controller = TextEditingController(text: widget.initialValue);
+  final FocusNode _focus = FocusNode();
 
   @override
   void didUpdateWidget(covariant _InlineRename oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialValue != _controller.text && !_focusHasFocus) {
+    if (widget.initialValue != _controller.text && !_focus.hasFocus) {
       _controller.text = widget.initialValue;
     }
   }
 
-  final FocusNode _focus = FocusNode();
-  bool get _focusHasFocus => _focus.hasFocus;
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -214,11 +331,15 @@ class _InlineRenameState extends State<_InlineRename> {
       controller: _controller,
       focusNode: _focus,
       style: widget.style,
+      cursorColor: Px.cyan,
+      cursorWidth: 3,
       decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
       onSubmitted: widget.onSubmit,
       onTapOutside: (_) {
-        _focus.unfocus();
-        widget.onSubmit(_controller.text);
+        if (_focus.hasFocus) {
+          _focus.unfocus();
+          widget.onSubmit(_controller.text);
+        }
       },
     );
   }
@@ -229,145 +350,196 @@ class _CardTile extends StatelessWidget {
   final Sprint sprint;
   final CardItem card;
 
+  Future<void> _finish(BuildContext context, AppProvider app) async {
+    final active = card.active;
+    if (active == null) return;
+    // Congela o tempo enquanto a janela está aberta.
+    final wasRunning = active.status == 'running';
+    if (wasRunning) app.pauseResume(sprint.id, card.id);
+    final result = await showFinishCycleDialog(
+      context,
+      cycleNumber: card.cycles.length + 1,
+      elapsedMs: card.getElapsed(),
+    );
+    if (result != null) {
+      app.finishCycle(sprint.id, card.id, result.bugs, result.melhorias);
+    } else if (wasRunning) {
+      app.pauseResume(sprint.id, card.id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    final isRunning = card.active?.status == 'running';
-    final isPaused = card.active?.status == 'paused';
+    final status = card.active?.status;
+    final isRunning = status == 'running';
+    final isPaused = status == 'paused';
     final isIdle = card.active == null;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1D2740),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2A3452)),
-      ),
+    final Color stateColor = isRunning ? Px.green : (isPaused ? Px.amber : const Color(0xFF7DD3FC));
+    final String stateLabel = isRunning ? 'EM ANDAMENTO' : (isPaused ? 'PAUSADO' : 'PARADO');
+
+    return PixelPanel(
+      border: isIdle ? Px.line : Px.cyan,
+      fill: Px.panelDark,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(4, 4, 4, 12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: () => app.toggleCardCollapse(sprint.id, card.id),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
+          Row(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => app.toggleCardCollapse(sprint.id, card.id),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(card.collapsed ? Icons.chevron_right : Icons.expand_more, size: 22, color: Px.cyan),
+                ),
+              ),
+              Expanded(
+                child: _InlineRename(
+                  key: ValueKey('card-${card.id}'),
+                  initialValue: card.name,
+                  style: Px.p(10, height: 1.5),
+                  onSubmit: (v) => app.renameCard(sprint.id, card.id, v),
+                ),
+              ),
+              PixelButton(
+                icon: Icons.delete_outline,
+                iconSize: 15,
+                width: 32,
+                height: 32,
+                padding: EdgeInsets.zero,
+                variant: PxVariant.red,
+                tooltip: 'Excluir card',
+                onPressed: () async {
+                  final ok = await pixelConfirm(context, 'Excluir este card e todos os ciclos dele?');
+                  if (ok) app.deleteCard(sprint.id, card.id);
+                },
+              ),
+            ],
+          ),
+          if (card.collapsed)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '${card.cycles.length} ciclos · $stateLabel',
+                style: Px.v(19, color: isIdle ? Px.muted : stateColor),
+              ),
+            )
+          else ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+              decoration: const BoxDecoration(
+                color: Colors.black,
+                boxShadow: [BoxShadow(color: Px.line2, spreadRadius: 2)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(card.collapsed ? Icons.chevron_right : Icons.expand_more, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _InlineRename(
-                      initialValue: card.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      onSubmit: (v) => app.renameCard(sprint.id, card.id, v),
-                    ),
+                  Row(
+                    children: [
+                      Container(width: 8, height: 8, color: stateColor),
+                      const SizedBox(width: 7),
+                      Text('CICLO #${card.cycles.length + 1} · $stateLabel', style: Px.p(8, color: stateColor, height: 1)),
+                    ],
                   ),
-                  Text('(${card.cycles.length} ciclos)', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                    onPressed: () async {
-                      final ok = await _confirm(context, 'Excluir este card e todos os ciclos dele?');
-                      if (ok) app.deleteCard(sprint.id, card.id);
-                    },
+                  const SizedBox(height: 4),
+                  Center(
+                    child: Text(
+                      fmtTime(card.getElapsed()),
+                      style: Px.v(66, color: stateColor).copyWith(
+                        letterSpacing: 2,
+                        shadows: [Shadow(color: stateColor, blurRadius: 8)],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-          if (!card.collapsed) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF161D2E),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF2A3452)),
+            const SizedBox(height: 8),
+            // Os 3 botões ficam sempre visíveis; o que não se aplica ao estado fica apagado.
+            Row(
+              children: [
+                Expanded(
+                  child: PixelButton(
+                    label: isPaused ? 'RETOMAR' : 'INICIAR',
+                    variant: PxVariant.green,
+                    fontSize: 8,
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    onPressed: isRunning
+                        ? null
+                        : () => isIdle ? app.startCycle(sprint.id, card.id) : app.pauseResume(sprint.id, card.id),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            fmtTime(card.getElapsed()),
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'monospace',
-                              color: Color(0xFF5B8CFF),
-                            ),
-                          ),
-                          Text(
-                            isRunning ? 'RODANDO' : (isPaused ? 'PAUSADO' : 'PARADO'),
-                            style: const TextStyle(fontSize: 11, color: Colors.grey, letterSpacing: 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isIdle)
-                      FilledButton.icon(
-                        icon: const Icon(Icons.play_arrow, size: 18),
-                        label: const Text('Iniciar'),
-                        onPressed: () => app.startCycle(sprint.id, card.id),
-                      ),
-                    if (isRunning)
-                      IconButton.filled(
-                        icon: const Icon(Icons.pause),
-                        style: IconButton.styleFrom(backgroundColor: Colors.amber),
-                        onPressed: () => app.pauseResume(sprint.id, card.id),
-                      ),
-                    if (isPaused)
-                      IconButton.filled(
-                        icon: const Icon(Icons.play_arrow),
-                        style: IconButton.styleFrom(backgroundColor: Colors.green),
-                        onPressed: () => app.pauseResume(sprint.id, card.id),
-                      ),
-                    if (!isIdle) ...[
-                      const SizedBox(width: 6),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.stop, size: 18),
-                        label: const Text('Finalizar'),
-                        onPressed: () async {
-                          final result = await showFinishCycleDialog(context);
-                          if (result != null) {
-                            app.finishCycle(sprint.id, card.id, result.bugs, result.melhorias);
-                          }
-                        },
-                      ),
-                    ],
-                  ],
+                Expanded(
+                  child: PixelButton(
+                    label: 'PAUSAR',
+                    variant: PxVariant.purple,
+                    fontSize: 8,
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    onPressed: isRunning ? () => app.pauseResume(sprint.id, card.id) : null,
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: PixelButton(
+                    label: 'FINALIZAR',
+                    variant: PxVariant.red,
+                    fontSize: 8,
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    onPressed: isIdle ? null : () => _finish(context, app),
+                  ),
+                ),
+              ],
             ),
-            if (card.cycles.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                child: Column(
-                  children: card.cycles.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final c = entry.value;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(width: 60, child: Text('Ciclo ${i + 1}', style: const TextStyle(fontSize: 12))),
-                          SizedBox(width: 64, child: Text(fmtTime(c.elapsedMs), style: const TextStyle(fontSize: 12))),
-                          Expanded(child: BugBadges(bugs: c.bugs)),
-                          Text('${c.melhorias} melh.', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              )
-            else
-              const Padding(
-                padding: EdgeInsets.fromLTRB(10, 0, 10, 12),
-                child: Text('Nenhum ciclo finalizado ainda.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 8),
+            if (card.cycles.isEmpty)
+              Text('Nenhum ciclo finalizado ainda.', style: Px.v(20, color: Px.muted))
+            else ...[
+              Row(
+                children: [
+                  Expanded(child: Text('CICLOS CONCLUÍDOS (${card.cycles.length})', style: Px.p(8, color: Px.muted, height: 1.4))),
+                  Text(fmtTime(card.cycles.fold<int>(0, (a, c) => a + c.elapsedMs)), style: Px.v(22, color: Px.cyan)),
+                ],
               ),
+              const SizedBox(height: 6),
+              for (var i = 0; i < card.cycles.length; i++) _CycleRow(index: i + 1, cycle: card.cycles[i]),
+            ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CycleRow extends StatelessWidget {
+  const _CycleRow({required this.index, required this.cycle});
+  final int index;
+  final Cycle cycle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(color: Px.header, boxShadow: [BoxShadow(color: Px.line2, spreadRadius: 2)]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('CICLO #$index', style: Px.p(8, color: Px.yellow, height: 1)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(fmtExecutado(cycle.finishedAt), style: Px.v(17, color: Px.muted))),
+              Text(fmtTime(cycle.elapsedMs), style: Px.v(21, color: Colors.white)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          BugBadges(bugs: cycle.bugs, melhorias: cycle.melhorias),
         ],
       ),
     );

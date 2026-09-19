@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -82,8 +81,12 @@ class AppProvider extends ChangeNotifier {
   ProjectItem get currentProject =>
       state.projects.firstWhere((p) => p.id == state.currentProjectId, orElse: () => state.projects.first);
 
-  void addProject() {
-    final p = ProjectItem(id: _uuid.v4(), name: 'Projeto ${state.projects.length + 1}');
+  void addProject([String? name]) {
+    final clean = name?.trim() ?? '';
+    final p = ProjectItem(
+      id: _uuid.v4(),
+      name: clean.isEmpty ? 'Projeto ${state.projects.length + 1}' : clean,
+    );
     state.projects.add(p);
     state.currentProjectId = p.id;
     mainSearchTerm = '';
@@ -158,6 +161,13 @@ class AppProvider extends ChangeNotifier {
     final sprint = findSprint(sprintId);
     if (sprint == null || name.trim().isEmpty) return;
     sprint.name = name.trim();
+    _save();
+  }
+
+  void setSprintStatus(String sprintId, String status) {
+    final sprint = findSprint(sprintId);
+    if (sprint == null) return;
+    sprint.status = status == Sprint.statusConcluida ? Sprint.statusConcluida : Sprint.statusEmAndamento;
     _save();
   }
 
@@ -255,10 +265,14 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ---------------- Export / Import ----------------
-  Future<File> exportJson() => _storage.exportToFile(state);
-
-  Future<void> importJson(String content) async {
-    final newState = _storage.parseImport(content);
+  Future<void> applyState(AppState newState) async {
+    for (final p in state.projects) {
+      for (final s in p.sprints) {
+        for (final c in s.cards) {
+          _notifications.cancelReminders(c.id);
+        }
+      }
+    }
     if (newState.projects.isEmpty) {
       newState.projects.add(ProjectItem(id: _uuid.v4(), name: 'Projeto 1'));
     }

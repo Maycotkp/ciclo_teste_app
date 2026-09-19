@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import 'screens/home_screen.dart';
 import 'state/app_provider.dart';
+import 'state/time_provider.dart';
+import 'theme/pixel.dart';
 
 void main() {
   runApp(const CicloTesteApp());
@@ -13,30 +15,15 @@ class CicloTesteApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF5B8CFF),
-      brightness: Brightness.dark,
-    );
-
-    return ChangeNotifierProvider(
-      create: (_) => AppProvider()..init(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppProvider()..init()),
+        ChangeNotifierProvider(create: (_) => TimeProvider()..init()),
+      ],
       child: MaterialApp(
-        title: 'Cronômetro de Ciclo de Teste',
+        title: 'Ciclo de Teste',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: scheme,
-          scaffoldBackgroundColor: const Color(0xFF0B0F1A),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF111729),
-            foregroundColor: Colors.white,
-            elevation: 0,
-          ),
-          cardTheme: CardThemeData(
-            color: const Color(0xFF161D2E),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
+        theme: Px.theme(),
         home: const HomeScreen(),
       ),
     );

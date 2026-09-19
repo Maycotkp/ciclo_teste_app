@@ -26,20 +26,32 @@ class NotificationService {
       // mantém UTC como fallback se a timezone local não puder ser resolvida
     }
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: androidSettings);
-    await _plugin.initialize(settings);
+    try {
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const settings = InitializationSettings(android: androidSettings);
+      await _plugin.initialize(settings);
+    } catch (_) {
+      // Fora do Android (testes, desktop) não há plugin de notificação: o app segue sem lembretes.
+    }
     _initialized = true;
   }
 
   Future<bool> hasPermission() async {
-    final status = await Permission.notification.status;
-    return status.isGranted;
+    try {
+      final status = await Permission.notification.status;
+      return status.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> requestPermission() async {
-    final status = await Permission.notification.request();
-    return status.isGranted;
+    try {
+      final status = await Permission.notification.request();
+      return status.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   int _baseIdFor(String cardId) => cardId.hashCode & 0x7fffffff;
@@ -94,11 +106,59 @@ class NotificationService {
     }
   }
 
+  static const int _maxIdleReminders = 8;
+
+  static const NotificationDetails _idleDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'atividade_longa',
+      'Atividade rodando há muito tempo',
+      channelDescription: 'Pergunta se você ainda está numa atividade que continua rodando',
+      importance: Importance.high,
+      priority: Priority.high,
+    ),
+  );
+
+  /// Agenda o alerta de "você ainda está nessa atividade?" a cada
+  /// [intervalMinutes] enquanto a atividade continuar rodando.
+  Future<void> scheduleIdleReminders(String activityId, String activityName, int intervalMinutes) async {
+    if (!await hasPermission()) return;
+    await init();
+    await cancelIdleReminders(activityId);
+    final baseId = _baseIdFor('idle-$activityId');
+    for (int i = 1; i <= _maxIdleReminders; i++) {
+      final when = tz.TZDateTime.now(tz.local).add(Duration(minutes: intervalMinutes * i));
+      await _plugin.zonedSchedule(
+        baseId + i,
+        '⏱️ Você ainda está nessa atividade?',
+        '"$activityName" continua rodando. Pause se já terminou.',
+        when,
+        _idleDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    }
+  }
+
+  Future<void> cancelIdleReminders(String activityId) async {
+    final baseId = _baseIdFor('idle-$activityId');
+    try {
+      for (int i = 1; i <= _maxIdleReminders; i++) {
+        await _plugin.cancel(baseId + i);
+      }
+    } catch (_) {
+      // Sem plugin de notificação (fora do Android): nada a cancelar.
+    }
+  }
+
   Future<void> cancelReminders(String cardId) async {
     final baseId = _baseIdFor(cardId);
-    await _plugin.cancel(baseId);
-    for (int i = 1; i <= _maxReminders; i++) {
-      await _plugin.cancel(baseId + i);
+    try {
+      await _plugin.cancel(baseId);
+      for (int i = 1; i <= _maxReminders; i++) {
+        await _plugin.cancel(baseId + i);
+      }
+    } catch (_) {
+      // Sem plugin de notificação (fora do Android): nada a cancelar.
     }
   }
 }

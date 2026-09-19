@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../theme/pixel.dart';
 
 class ChartCyclePoint {
   final String label;
@@ -11,7 +12,7 @@ class ChartCyclePoint {
 
 Widget _chartTitle(String text) => Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: .5)),
+      child: Text(text, style: const TextStyle(fontFamily: 'PressStart', fontSize: 8, height: 1.5, color: Px.text)),
     );
 
 class PriorityBarChart extends StatelessWidget {
@@ -21,7 +22,7 @@ class PriorityBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) {
-      return const SizedBox(height: 160, child: Center(child: Text('Sem dados ainda', style: TextStyle(color: Colors.grey))));
+      return const SizedBox(height: 160, child: Center(child: Text('Sem dados ainda', style: TextStyle(fontFamily: 'VT323', fontSize: 20, color: Px.muted))));
     }
     double maxY = 1;
     for (final p in points) {
@@ -44,10 +45,10 @@ class PriorityBarChart extends StatelessWidget {
                 final i = e.key;
                 final b = e.value.bugs;
                 return BarChartGroupData(x: i, barRods: [
-                  BarChartRodData(toY: b.critico.toDouble(), color: Colors.redAccent, width: 6),
-                  BarChartRodData(toY: b.bloqueado.toDouble(), color: Colors.orangeAccent, width: 6),
-                  BarChartRodData(toY: b.medio.toDouble(), color: Colors.amber, width: 6),
-                  BarChartRodData(toY: b.baixo.toDouble(), color: Colors.greenAccent, width: 6),
+                  BarChartRodData(toY: b.critico.toDouble(), color: Px.critico, width: 6),
+                  BarChartRodData(toY: b.bloqueado.toDouble(), color: Px.bloqueado, width: 6),
+                  BarChartRodData(toY: b.medio.toDouble(), color: Px.green, width: 6),
+                  BarChartRodData(toY: b.baixo.toDouble(), color: Px.baixo, width: 6),
                 ]);
               }).toList(),
               titlesData: FlTitlesData(
@@ -62,23 +63,23 @@ class PriorityBarChart extends StatelessWidget {
                       if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(points[idx].label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                        child: Text(points[idx].label, style: const TextStyle(fontFamily: 'VT323', fontSize: 15, color: Px.muted)),
                       );
                     },
                   ),
                 ),
               ),
               borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => const FlLine(color: Px.line2, strokeWidth: 1)),
             ),
           ),
         ),
         const SizedBox(height: 10),
         Wrap(spacing: 10, children: const [
-          _LegendDot(color: Colors.redAccent, label: 'Crítico'),
-          _LegendDot(color: Colors.orangeAccent, label: 'Bloqueado'),
-          _LegendDot(color: Colors.amber, label: 'Médio'),
-          _LegendDot(color: Colors.greenAccent, label: 'Baixo'),
+          _LegendDot(color: Px.critico, label: 'Crítico'),
+          _LegendDot(color: Px.bloqueado, label: 'Bloqueado'),
+          _LegendDot(color: Px.green, label: 'Médio'),
+          _LegendDot(color: Px.baixo, label: 'Baixo'),
         ]),
       ],
     );
@@ -92,7 +93,7 @@ class CriticalLevelChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) {
-      return const SizedBox(height: 120, child: Center(child: Text('Sem dados ainda', style: TextStyle(color: Colors.grey))));
+      return const SizedBox(height: 120, child: Center(child: Text('Sem dados ainda', style: TextStyle(fontFamily: 'VT323', fontSize: 20, color: Px.muted))));
     }
     int cum = 0;
     final spots = <FlSpot>[];
@@ -115,8 +116,8 @@ class CriticalLevelChart extends StatelessWidget {
               lineBarsData: [
                 LineChartBarData(
                   spots: spots,
-                  isCurved: true,
-                  color: const Color(0xFF5B8CFF),
+                  isCurved: false,
+                  color: const Color(0xFFFB7185),
                   barWidth: 3,
                   dotData: const FlDotData(show: true),
                 ),
@@ -133,14 +134,14 @@ class CriticalLevelChart extends StatelessWidget {
                       if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(points[idx].label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                        child: Text(points[idx].label, style: const TextStyle(fontFamily: 'VT323', fontSize: 15, color: Px.muted)),
                       );
                     },
                   ),
                 ),
               ),
               borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => const FlLine(color: Px.line2, strokeWidth: 1)),
             ),
           ),
         ),
@@ -156,7 +157,7 @@ class TotalBugsBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) {
-      return const SizedBox(height: 160, child: Center(child: Text('Sem dados ainda', style: TextStyle(color: Colors.grey))));
+      return const SizedBox(height: 160, child: Center(child: Text('Sem dados ainda', style: TextStyle(fontFamily: 'VT323', fontSize: 20, color: Px.muted))));
     }
     final totals = points.map((p) => p.bugs.total).toList();
     final maxY = (totals.isEmpty ? 1 : totals.reduce((a, b) => a > b ? a : b)).toDouble() * 1.2;
@@ -172,7 +173,7 @@ class TotalBugsBarChart extends StatelessWidget {
               maxY: maxY == 0 ? 1 : maxY,
               barGroups: totals.asMap().entries.map((e) {
                 return BarChartGroupData(x: e.key, barRods: [
-                  BarChartRodData(toY: e.value.toDouble(), color: const Color(0xFF7C5BFF), width: 14, borderRadius: BorderRadius.circular(4)),
+                  BarChartRodData(toY: e.value.toDouble(), color: Px.cyan, width: 14, borderRadius: BorderRadius.zero),
                 ]);
               }).toList(),
               titlesData: FlTitlesData(
@@ -187,14 +188,14 @@ class TotalBugsBarChart extends StatelessWidget {
                       if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(points[idx].label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                        child: Text(points[idx].label, style: const TextStyle(fontFamily: 'VT323', fontSize: 15, color: Px.muted)),
                       );
                     },
                   ),
                 ),
               ),
               borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => const FlLine(color: Px.line2, strokeWidth: 1)),
             ),
           ),
         ),
@@ -210,7 +211,7 @@ class BugsLevelLineChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) {
-      return const SizedBox(height: 120, child: Center(child: Text('Sem dados ainda', style: TextStyle(color: Colors.grey))));
+      return const SizedBox(height: 120, child: Center(child: Text('Sem dados ainda', style: TextStyle(fontFamily: 'VT323', fontSize: 20, color: Px.muted))));
     }
     final spots = points.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.bugs.total.toDouble())).toList();
     final maxVal = points.map((p) => p.bugs.total).fold<int>(0, (a, b) => a > b ? a : b);
@@ -229,8 +230,8 @@ class BugsLevelLineChart extends StatelessWidget {
               lineBarsData: [
                 LineChartBarData(
                   spots: spots,
-                  isCurved: true,
-                  color: Colors.amber,
+                  isCurved: false,
+                  color: Px.green,
                   barWidth: 3,
                   dotData: const FlDotData(show: true),
                 ),
@@ -247,14 +248,14 @@ class BugsLevelLineChart extends StatelessWidget {
                       if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(points[idx].label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                        child: Text(points[idx].label, style: const TextStyle(fontFamily: 'VT323', fontSize: 15, color: Px.muted)),
                       );
                     },
                   ),
                 ),
               ),
               borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => const FlLine(color: Px.line2, strokeWidth: 1)),
             ),
           ),
         ),
@@ -270,9 +271,9 @@ class _LegendDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      Container(width: 10, height: 10, color: color),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      Text(label, style: const TextStyle(fontFamily: 'VT323', fontSize: 16, color: Px.muted)),
     ]);
   }
 }

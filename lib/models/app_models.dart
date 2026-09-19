@@ -125,22 +125,30 @@ class CardItem {
 }
 
 class Sprint {
+  static const statusEmAndamento = 'em_andamento';
+  static const statusConcluida = 'concluida';
+
   final String id;
   String name;
   bool collapsed;
+  String status; // 'em_andamento' | 'concluida' (definido manualmente)
   List<CardItem> cards;
 
   Sprint({
     required this.id,
     required this.name,
     this.collapsed = false,
+    this.status = statusEmAndamento,
     List<CardItem>? cards,
   }) : cards = cards ?? [];
+
+  bool get concluida => status == statusConcluida;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'collapsed': collapsed,
+        'status': status,
         'cards': cards.map((c) => c.toJson()).toList(),
       };
 
@@ -148,6 +156,7 @@ class Sprint {
         id: j['id'] as String,
         name: (j['name'] ?? 'Sprint') as String,
         collapsed: (j['collapsed'] ?? false) as bool,
+        status: (j['status'] == statusConcluida) ? statusConcluida : statusEmAndamento,
         cards: (j['cards'] as List<dynamic>? ?? [])
             .map((c) => CardItem.fromJson(Map<String, dynamic>.from(c)))
             .toList(),
